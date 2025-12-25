@@ -10,11 +10,13 @@ interface PCBuild {
   name: string;
   level: string;
   price: string;
+  priceNum: number;
   cpu: string;
   gpu: string;
   ram: string;
   storage: string;
   fps: string;
+  fpsNum: number;
   stores: { name: string; url: string }[];
 }
 
@@ -24,11 +26,13 @@ const pcBuilds: PCBuild[] = [
     name: 'Начальный уровень',
     level: 'entry',
     price: '₽45,000',
+    priceNum: 45000,
     cpu: 'Intel i3-12100F',
     gpu: 'GTX 1650',
     ram: '16GB DDR4',
     storage: '500GB NVMe',
     fps: '60 FPS в Full HD',
+    fpsNum: 60,
     stores: [
       { name: 'DNS', url: '#' },
       { name: 'Ситилинк', url: '#' },
@@ -39,11 +43,13 @@ const pcBuilds: PCBuild[] = [
     name: 'Средний уровень',
     level: 'mid',
     price: '₽85,000',
+    priceNum: 85000,
     cpu: 'AMD Ryzen 5 5600X',
     gpu: 'RTX 4060',
     ram: '32GB DDR4',
     storage: '1TB NVMe',
     fps: '100+ FPS в Full HD',
+    fpsNum: 100,
     stores: [
       { name: 'DNS', url: '#' },
       { name: 'МВидео', url: '#' },
@@ -54,11 +60,13 @@ const pcBuilds: PCBuild[] = [
     name: 'Топовый уровень',
     level: 'high',
     price: '₽180,000',
+    priceNum: 180000,
     cpu: 'AMD Ryzen 7 7800X3D',
     gpu: 'RTX 4080',
     ram: '32GB DDR5',
     storage: '2TB NVMe',
     fps: '144+ FPS в 2K',
+    fpsNum: 144,
     stores: [
       { name: 'DNS', url: '#' },
       { name: 'Регард', url: '#' },
@@ -89,6 +97,17 @@ const articles = [
 
 export default function Index() {
   const [activeTab, setActiveTab] = useState('builds');
+  const [budgetFilter, setBudgetFilter] = useState<number>(200000);
+  const [selectedGame, setSelectedGame] = useState('valorant');
+
+  const filteredBuilds = pcBuilds.filter(build => build.priceNum <= budgetFilter);
+
+  const gameRequirements = {
+    valorant: { name: 'Valorant', minFps: 60, recFps: 144 },
+    csgo: { name: 'CS:GO', minFps: 60, recFps: 144 },
+    cyberpunk: { name: 'Cyberpunk 2077', minFps: 30, recFps: 60 },
+    rdr2: { name: 'RDR 2', minFps: 30, recFps: 60 },
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -116,10 +135,14 @@ export default function Index() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-8">
+            <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 mb-8">
               <TabsTrigger value="builds" className="data-[state=active]:bg-primary">
                 <Icon name="Cpu" className="mr-2" size={16} />
                 Сборки
+              </TabsTrigger>
+              <TabsTrigger value="calculator" className="data-[state=active]:bg-primary">
+                <Icon name="Calculator" className="mr-2" size={16} />
+                Калькулятор
               </TabsTrigger>
               <TabsTrigger value="compare" className="data-[state=active]:bg-primary">
                 <Icon name="GitCompare" className="mr-2" size={16} />
@@ -132,8 +155,40 @@ export default function Index() {
             </TabsList>
 
             <TabsContent value="builds" className="animate-fade-in">
+              <Card className="border-primary/20 mb-6">
+                <CardHeader>
+                  <CardTitle className="font-heading text-2xl">Фильтр по бюджету</CardTitle>
+                  <CardDescription>Найди сборку в своём ценовом диапазоне</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Максимальная цена:</span>
+                      <span className="text-2xl font-bold text-primary">₽{budgetFilter.toLocaleString()}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="30000"
+                      max="200000"
+                      step="5000"
+                      value={budgetFilter}
+                      onChange={(e) => setBudgetFilter(Number(e.target.value))}
+                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>₽30,000</span>
+                      <span>₽200,000</span>
+                    </div>
+                    <div className="text-center pt-2">
+                      <Badge variant="outline" className="text-accent border-accent">
+                        Найдено: {filteredBuilds.length} {filteredBuilds.length === 1 ? 'сборка' : 'сборки'}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pcBuilds.map((build) => (
+                {filteredBuilds.map((build) => (
                   <Card
                     key={build.id}
                     className="border-primary/20 hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-1"
@@ -197,6 +252,114 @@ export default function Index() {
                   </Card>
                 ))}
               </div>
+            </TabsContent>
+
+            <TabsContent value="calculator" className="animate-fade-in">
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle className="font-heading text-3xl">Калькулятор производительности</CardTitle>
+                  <CardDescription>Узнай, какая сборка подойдёт для твоей игры</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-3">Выбери игру:</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {Object.entries(gameRequirements).map(([key, game]) => (
+                        <Button
+                          key={key}
+                          variant={selectedGame === key ? 'default' : 'outline'}
+                          onClick={() => setSelectedGame(key)}
+                          className={selectedGame === key ? 'bg-primary' : 'border-primary/30 hover:bg-primary/20'}
+                        >
+                          {game.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-6 space-y-4">
+                    <h3 className="font-heading text-xl text-center mb-4">
+                      Требования для {gameRequirements[selectedGame as keyof typeof gameRequirements].name}
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="bg-card border border-accent/50 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="CheckCircle" size={20} className="text-accent" />
+                          <span className="font-heading font-semibold">Минимум</span>
+                        </div>
+                        <p className="text-2xl font-bold text-accent">
+                          {gameRequirements[selectedGame as keyof typeof gameRequirements].minFps} FPS
+                        </p>
+                      </div>
+                      <div className="bg-card border border-primary/50 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="Zap" size={20} className="text-primary" />
+                          <span className="font-heading font-semibold">Рекомендуется</span>
+                        </div>
+                        <p className="text-2xl font-bold text-primary">
+                          {gameRequirements[selectedGame as keyof typeof gameRequirements].recFps} FPS
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-heading text-xl mb-4">Подходящие сборки:</h3>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {pcBuilds.map((build) => {
+                        const gameReq = gameRequirements[selectedGame as keyof typeof gameRequirements];
+                        const meetsMin = build.fpsNum >= gameReq.minFps;
+                        const meetsRec = build.fpsNum >= gameReq.recFps;
+                        
+                        return (
+                          <Card
+                            key={build.id}
+                            className={`border-2 transition-all ${
+                              meetsRec
+                                ? 'border-primary bg-primary/5'
+                                : meetsMin
+                                ? 'border-accent bg-accent/5'
+                                : 'border-destructive/30 opacity-60'
+                            }`}
+                          >
+                            <CardHeader>
+                              <div className="flex items-center justify-between mb-2">
+                                <CardTitle className="text-lg">{build.name}</CardTitle>
+                                {meetsRec ? (
+                                  <Badge className="bg-primary">
+                                    <Icon name="Star" size={14} className="mr-1" />
+                                    Отлично
+                                  </Badge>
+                                ) : meetsMin ? (
+                                  <Badge variant="outline" className="border-accent text-accent">
+                                    Подойдёт
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="border-destructive text-destructive">
+                                    Слабо
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardDescription className="flex items-center gap-2">
+                                <Icon name="Zap" size={16} />
+                                {build.fps}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardFooter className="flex flex-col gap-2">
+                              <div className="text-2xl font-bold text-primary">{build.price}</div>
+                              {meetsRec && (
+                                <p className="text-xs text-center text-muted-foreground">
+                                  Рекомендуем для комфортной игры
+                                </p>
+                              )}
+                            </CardFooter>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="compare" className="animate-fade-in">
