@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -99,8 +99,59 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState('builds');
   const [budgetFilter, setBudgetFilter] = useState<number>(200000);
   const [selectedGame, setSelectedGame] = useState('valorant');
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{role: 'user' | 'bot', text: string}[]>([
+    { role: 'bot', text: 'Привет! Я помогу подобрать идеальную сборку ПК. Какой у тебя бюджет?' }
+  ]);
+  const [userInput, setUserInput] = useState('');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('favoritePCBuilds');
+    if (saved) setFavorites(JSON.parse(saved));
+  }, []);
+
+  const toggleFavorite = (id: number) => {
+    const updated = favorites.includes(id)
+      ? favorites.filter(fav => fav !== id)
+      : [...favorites, id];
+    setFavorites(updated);
+    localStorage.setItem('favoritePCBuilds', JSON.stringify(updated));
+  };
+
+  const handleChatSend = () => {
+    if (!userInput.trim()) return;
+    
+    const userMessage = { role: 'user' as const, text: userInput };
+    setChatMessages(prev => [...prev, userMessage]);
+    
+    setTimeout(() => {
+      let botResponse = '';
+      const budget = userInput.match(/\d+/);
+      
+      if (budget) {
+        const num = parseInt(budget[0]);
+        if (num < 50000) {
+          botResponse = 'Для бюджета до 50к подойдёт начальная сборка с i3 и GTX 1650. Она потянет большинство игр в Full HD на средних настройках!';
+        } else if (num < 100000) {
+          botResponse = 'С таким бюджетом рекомендую среднюю сборку на Ryzen 5 и RTX 4060. Отличное соотношение цена/качество для 1080p gaming!';
+        } else {
+          botResponse = 'При таком бюджете можно взять топовую сборку! Ryzen 7 7800X3D + RTX 4080 = ультра настройки в 2K с высоким FPS.';
+        }
+      } else if (userInput.toLowerCase().includes('игр')) {
+        botResponse = 'Для онлайн-игр (Valorant, CS:GO) важны высокие FPS - от 144. Для AAA-игр (Cyberpunk, RDR2) нужна мощная видеокарта. Какие игры планируешь?';
+      } else {
+        botResponse = 'Чтобы помочь точнее, расскажи: какой у тебя бюджет и в какие игры хочешь играть? Например: "У меня 80 тысяч, играю в Valorant"';
+      }
+      
+      setChatMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
+    }, 800);
+    
+    setUserInput('');
+  };
 
   const filteredBuilds = pcBuilds.filter(build => build.priceNum <= budgetFilter);
+  const favoriteBuilds = pcBuilds.filter(build => favorites.includes(build.id));
 
   const gameRequirements = {
     valorant: { name: 'Valorant', minFps: 60, recFps: 144 },
@@ -135,10 +186,19 @@ export default function Index() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 mb-8">
+            <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-5 mb-8">
               <TabsTrigger value="builds" className="data-[state=active]:bg-primary">
                 <Icon name="Cpu" className="mr-2" size={16} />
                 Сборки
+              </TabsTrigger>
+              <TabsTrigger value="favorites" className="data-[state=active]:bg-primary relative">
+                <Icon name="Heart" className="mr-2" size={16} />
+                Избранное
+                {favorites.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-secondary text-xs">
+                    {favorites.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="calculator" className="data-[state=active]:bg-primary">
                 <Icon name="Calculator" className="mr-2" size={16} />
@@ -207,7 +267,21 @@ export default function Index() {
                         >
                           {build.level === 'entry' ? 'НАЧАЛЬНЫЙ' : build.level === 'mid' ? 'СРЕДНИЙ' : 'ТОПОВЫЙ'}
                         </Badge>
-                        <span className="text-2xl font-bold text-primary">{build.price}</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-secondary/20"
+                            onClick={() => toggleFavorite(build.id)}
+                          >
+                            <Icon
+                              name={favorites.includes(build.id) ? 'Heart' : 'Heart'}
+                              size={18}
+                              className={favorites.includes(build.id) ? 'text-secondary fill-secondary' : 'text-muted-foreground'}
+                            />
+                          </Button>
+                          <span className="text-2xl font-bold text-primary">{build.price}</span>
+                        </div>
                       </div>
                       <CardTitle className="font-heading text-2xl">{build.name}</CardTitle>
                       <CardDescription className="flex items-center gap-2">
@@ -252,6 +326,77 @@ export default function Index() {
                   </Card>
                 ))}
               </div>
+            </TabsContent>
+
+            <TabsContent value="favorites" className="animate-fade-in">
+              <Card className="border-primary/20">
+                <CardHeader>
+                  <CardTitle className="font-heading text-3xl">Избранные сборки</CardTitle>
+                  <CardDescription>
+                    {favoriteBuilds.length === 0
+                      ? 'Добавь сборки в избранное, чтобы быстро к ним вернуться'
+                      : `Сохранено: ${favoriteBuilds.length} ${favoriteBuilds.length === 1 ? 'сборка' : 'сборки'}`}
+                  </CardDescription>
+                </CardHeader>
+                {favoriteBuilds.length > 0 && (
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {favoriteBuilds.map((build) => (
+                        <Card
+                          key={build.id}
+                          className="border-secondary/30 hover:border-secondary transition-all hover:shadow-lg hover:shadow-secondary/20"
+                        >
+                          <CardHeader>
+                            <div className="flex items-center justify-between mb-2">
+                              <CardTitle className="text-xl">{build.name}</CardTitle>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-destructive/20"
+                                onClick={() => toggleFavorite(build.id)}
+                              >
+                                <Icon name="X" size={16} className="text-destructive" />
+                              </Button>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <Icon name="Cpu" size={14} className="text-primary" />
+                                <span>{build.cpu}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Icon name="Monitor" size={14} className="text-secondary" />
+                                <span>{build.gpu}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Icon name="Zap" size={14} className="text-accent" />
+                                <span>{build.fps}</span>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardFooter className="flex flex-col gap-2">
+                            <div className="text-2xl font-bold text-primary w-full text-center">{build.price}</div>
+                            <div className="flex gap-2 w-full">
+                              {build.stores.map((store, idx) => (
+                                <Button
+                                  key={idx}
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 border-primary/30 hover:bg-primary/20"
+                                  asChild
+                                >
+                                  <a href={store.url} target="_blank" rel="noopener noreferrer">
+                                    {store.name}
+                                  </a>
+                                </Button>
+                              ))}
+                            </div>
+                          </CardFooter>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
             </TabsContent>
 
             <TabsContent value="calculator" className="animate-fade-in">
@@ -470,6 +615,78 @@ export default function Index() {
           <p>© 2024 PC Build Hub. Помогаем выбрать лучшую сборку для игр</p>
         </div>
       </footer>
+
+      {chatOpen && (
+        <Card className="fixed bottom-4 right-4 w-96 max-h-[600px] border-primary/30 shadow-2xl shadow-primary/20 z-50 animate-slide-in-right">
+          <CardHeader className="bg-gradient-to-r from-primary to-secondary p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <Icon name="MessageCircle" size={20} className="text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-lg">Ассистент PC Builder</CardTitle>
+                  <CardDescription className="text-white/80 text-xs">Онлайн</CardDescription>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20"
+                onClick={() => setChatOpen(false)}
+              >
+                <Icon name="X" size={18} />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 h-[400px] overflow-y-auto space-y-3">
+            {chatMessages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] p-3 rounded-lg ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-white'
+                      : 'bg-muted text-foreground'
+                  }`}
+                >
+                  <p className="text-sm">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+          <CardFooter className="p-4 border-t border-primary/20">
+            <div className="flex gap-2 w-full">
+              <input
+                type="text"
+                placeholder="Напиши сообщение..."
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleChatSend()}
+                className="flex-1 px-3 py-2 bg-muted border border-primary/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={handleChatSend}
+                disabled={!userInput.trim()}
+                className="bg-primary hover:opacity-90"
+              >
+                <Icon name="Send" size={16} />
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      )}
+
+      <Button
+        size="lg"
+        onClick={() => setChatOpen(!chatOpen)}
+        className="fixed bottom-4 right-4 h-14 w-14 rounded-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 shadow-lg shadow-primary/30 z-40 animate-glow-pulse"
+      >
+        <Icon name={chatOpen ? 'X' : 'MessageCircle'} size={24} />
+      </Button>
     </div>
   );
 }
